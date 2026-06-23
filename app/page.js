@@ -36,8 +36,6 @@ export default function Home() {
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("matches");
   const [matches, setMatches] = useState([]);
-  const [players, setPlayers] = useState([]);
-  const [roster, setRoster] = useState([]);
   const [preds, setPreds] = useState({});
   const [board, setBoard] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,31 +67,50 @@ export default function Home() {
   async function bootstrap() {
     setLoading(true);
     const prof = await loadProfile();
-    if (prof) {
-      await Promise.all([loadMatches(), loadPreds(prof), loadPlayers()]);
-    } else {
-      await loadRoster();
-    }
+    await Promise.all([loadMatches(), loadPreds(prof)]);
     setLoading(false);
+    // Quietly pull in any finished results, then refresh if something changed.
+    triggerSync();
+  }
+
+  // Fire-and-forget background sync. The site shows instantly; if a new result
+  // lands, the matches + leaderboard refresh a moment later. The endpoint is
+  // public and rate-limit-safe (the feed is cached server-side), so it is fine
+  // to call on every load.
+  async function triggerSync() {
+    try {
+      const r = await fetch("/api/sync-results", { cache: "no-store" });
+      const j = await r.json();
+      if (j && j.updated > 0) {
+        await loadMatches();
+        await loadBoard();
+      }
+    } catch (_e) {
+      /* ignore – syncing is best-effort */
+    }
   }
 
   async function loadProfile() {
     const uid = session.user.id;
-    const { data } = await supabase
+    let { data } = await supabase
       .from("profiles")
       .select("*")
-      .eq("auth_id", uid)
+      .eq("id", uid)
       .maybeSingle();
+    // The signup trigger normally creates this row; create it if missing.
+    if (!data) {
+      const name =
+        session.user.user_metadata?.full_name ||
+        (session.user.email || "Player").split("@")[0];
+      const ins = await supabase
+        .from("profiles")
+        .insert({ id: uid, display_name: name })
+        .select("*")
+        .maybeSingle();
+      data = ins.data || null;
+    }
     setProfile(data || null);
     return data || null;
-  }
-  async function loadRoster() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, display_name")
-      .is("auth_id", null)
-      .order("display_name");
-    setRoster(data || []);
   }
   async function loadMatches() {
     const { data } = await supabase
@@ -101,13 +118,6 @@ export default function Home() {
       .select("*")
       .order("kickoff");
     setMatches(data || []);
-  }
-  async function loadPlayers() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, display_name")
-      .order("display_name");
-    setPlayers(data || []);
   }
   async function loadPreds(prof) {
     const p = prof || profile;
@@ -127,30 +137,6 @@ export default function Home() {
     if (!error) setBoard(data || []);
   }
 
-  async function claimName(id) {
-    const { error } = await supabase.rpc("claim_profile", { p_id: id });
-    if (error) {
-      alert(
-        error.message || "Couldn't claim that name — it may already be taken.",
-      );
-      await loadRoster();
-      return;
-    }
-    await bootstrap();
-  }
-  async function createName(name) {
-    const clean = name.trim();
-    if (!clean) return;
-    const { error } = await supabase
-      .from("profiles")
-      .insert({ auth_id: session.user.id, display_name: clean });
-    if (error) {
-      alert("Couldn't create your profile: " + error.message);
-      return;
-    }
-    await bootstrap();
-  }
-
   async function pick(matchId, value) {
     const prev = preds[matchId];
     setPreds((p) => ({ ...p, [matchId]: value }));
@@ -168,10 +154,15 @@ export default function Home() {
   }
 
   async function setResult(matchId, value) {
-    await supabase
+    const { error } = await supabase
       .from("matches")
       .update({ result: value || null })
       .eq("id", matchId);
+    if (error) {
+      setMsg("Couldn't set result: " + error.message);
+      setTimeout(() => setMsg(""), 4000);
+      return;
+    }
     await loadMatches();
   }
 
@@ -187,22 +178,13 @@ export default function Home() {
 
   if (!session) return <Landing onSignIn={signIn} />;
   if (loading) return <div className="center">Loading…</div>;
-  if (!profile)
-    return (
-      <Claim
-        roster={roster}
-        onClaim={claimName}
-        onCreate={createName}
-        onSignOut={signOut}
-      />
-    );
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">🏆 World Cup Predictions</div>
         <div className="user">
-          <span>{profile.display_name}</span>
+          <span>{profile?.display_name}</span>
           <button className="link" onClick={signOut}>
             Sign out
           </button>
@@ -225,7 +207,7 @@ export default function Home() {
         >
           Leaderboard
         </button>
-        {profile.is_admin && (
+        {profile?.is_admin && (
           <button
             className={tab === "admin" ? "active" : ""}
             onClick={() => setTab("admin")}
@@ -240,14 +222,11 @@ export default function Home() {
       {tab === "matches" && (
         <Matches matches={matches} preds={preds} now={now} onPick={pick} />
       )}
-      {tab === "leaderboard" && <Leaderboard board={board} meId={profile.id} />}
-      {tab === "admin" && profile.is_admin && (
-        <Admin
-          matches={matches}
-          players={players}
-          onSetResult={setResult}
-          onReloadPlayers={loadPlayers}
-        />
+      {tab === "leaderboard" && (
+        <Leaderboard board={board} meId={profile?.id} />
+      )}
+      {tab === "admin" && profile?.is_admin && (
+        <AdminResults matches={matches} onSetResult={setResult} />
       )}
 
       <footer className="foot">
@@ -272,61 +251,6 @@ function Landing({ onSignIn }) {
         </p>
         <button className="google" onClick={onSignIn}>
           <span className="g">G</span> Sign in with Google
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Claim({ roster, onClaim, onCreate, onSignOut }) {
-  const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function claim(id) {
-    setBusy(true);
-    await onClaim(id);
-    setBusy(false);
-  }
-  async function create() {
-    setBusy(true);
-    await onCreate(newName);
-    setBusy(false);
-  }
-  return (
-    <div className="landing">
-      <div className="hero claim">
-        <div className="logo">👋</div>
-        <h1>Which player are you?</h1>
-        <p>Tap your name so your votes and points are linked to you.</p>
-        <div className="claimlist">
-          {roster.length === 0 && (
-            <div className="muted">No unclaimed names left.</div>
-          )}
-          {roster.map((r) => (
-            <button
-              key={r.id}
-              className="claimbtn"
-              disabled={busy}
-              onClick={() => claim(r.id)}
-            >
-              {r.display_name}
-            </button>
-          ))}
-        </div>
-        <div className="claimnew">
-          <div className="muted">Not on the list?</div>
-          <div className="addrow">
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Type your name…"
-            />
-            <button onClick={create} disabled={busy || !newName.trim()}>
-              Add me
-            </button>
-          </div>
-        </div>
-        <button className="link signout" onClick={onSignOut}>
-          Sign out
         </button>
       </div>
     </div>
@@ -452,43 +376,12 @@ function Leaderboard({ board, meId }) {
   );
 }
 
-function Admin({ matches, players, onSetResult, onReloadPlayers }) {
-  const [mode, setMode] = useState("results");
-  return (
-    <div className="list">
-      <div className="subtabs">
-        <button
-          className={mode === "results" ? "active" : ""}
-          onClick={() => setMode("results")}
-        >
-          Results
-        </button>
-        <button
-          className={mode === "votes" ? "active" : ""}
-          onClick={() => setMode("votes")}
-        >
-          Enter votes
-        </button>
-      </div>
-      {mode === "results" ? (
-        <AdminResults matches={matches} onSetResult={onSetResult} />
-      ) : (
-        <AdminVotes
-          matches={matches}
-          players={players}
-          onReloadPlayers={onReloadPlayers}
-        />
-      )}
-    </div>
-  );
-}
-
 function AdminResults({ matches, onSetResult }) {
   return (
-    <div>
+    <div className="list">
       <div className="hint">
         Setting a result instantly updates everyone&apos;s points and the
-        leaderboard.
+        leaderboard. Results also fill in automatically as matches finish.
       </div>
       {matches.map((m) => (
         <div key={m.id} className="match">
@@ -510,7 +403,11 @@ function AdminResults({ matches, onSetResult }) {
             ].map(([val, label]) => (
               <button
                 key={label}
-                className={"pickbtn" + (val && m.result === val ? " sel" : "")}
+                className={
+                  "pickbtn" +
+                  (val && m.result === val ? " sel" : "") +
+                  (!val ? " clear" : "")
+                }
                 onClick={() => onSetResult(m.id, val)}
               >
                 {label}
@@ -519,130 +416,6 @@ function AdminResults({ matches, onSetResult }) {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function AdminVotes({ matches, players, onReloadPlayers }) {
-  const [matchId, setMatchId] = useState(matches[0] ? matches[0].id : null);
-  const [picks, setPicks] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [newName, setNewName] = useState("");
-
-  useEffect(() => {
-    if (matchId != null) loadPicks(matchId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
-
-  async function loadPicks(id) {
-    setLoading(true);
-    const { data } = await supabase
-      .from("predictions")
-      .select("user_id, pick")
-      .eq("match_id", id);
-    const map = {};
-    (data || []).forEach((p) => {
-      map[p.user_id] = p.pick;
-    });
-    setPicks(map);
-    setLoading(false);
-  }
-  async function setVote(playerId, value) {
-    const prev = picks[playerId];
-    setPicks((p) => ({ ...p, [playerId]: value || undefined }));
-    if (!value) {
-      await supabase
-        .from("predictions")
-        .delete()
-        .eq("user_id", playerId)
-        .eq("match_id", matchId);
-    } else {
-      const { error } = await supabase
-        .from("predictions")
-        .upsert(
-          { user_id: playerId, match_id: matchId, pick: value },
-          { onConflict: "user_id,match_id" },
-        );
-      if (error) {
-        setPicks((p) => ({ ...p, [playerId]: prev }));
-        alert("Save failed: " + error.message);
-      }
-    }
-  }
-  async function addPlayer() {
-    if (!newName.trim()) return;
-    const { error } = await supabase
-      .from("profiles")
-      .insert({ display_name: newName.trim() });
-    if (error) {
-      alert("Couldn't add player: " + error.message);
-      return;
-    }
-    setNewName("");
-    onReloadPlayers();
-  }
-
-  const m = matches.find((x) => x.id === matchId);
-  return (
-    <div>
-      <select
-        className="select"
-        value={matchId == null ? "" : matchId}
-        onChange={(e) => setMatchId(Number(e.target.value))}
-      >
-        {matches.map((x) => (
-          <option key={x.id} value={x.id}>
-            #{x.id} · {x.home} v {x.away}
-          </option>
-        ))}
-      </select>
-      {m && (
-        <div className="hint">
-          Tap each player&apos;s vote for{" "}
-          <b>
-            {m.home} v {m.away}
-          </b>
-          . H = {m.home} win, D = draw, A = {m.away} win.
-        </div>
-      )}
-      {loading ? (
-        <div className="center">Loading…</div>
-      ) : (
-        players.map((pl) => (
-          <div key={pl.id} className="voter">
-            <span className="vname">{pl.display_name}</span>
-            <div className="picks">
-              {[
-                ["home", "H"],
-                ["draw", "D"],
-                ["away", "A"],
-              ].map(([v, l]) => (
-                <button
-                  key={v}
-                  className={"pickbtn" + (picks[pl.id] === v ? " sel" : "")}
-                  onClick={() => setVote(pl.id, v)}
-                >
-                  {l}
-                </button>
-              ))}
-              <button
-                className="pickbtn clear"
-                onClick={() => setVote(pl.id, "")}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))
-      )}
-      <div className="addrow">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Add a player who isn't listed…"
-        />
-        <button onClick={addPlayer}>Add</button>
-      </div>
     </div>
   );
 }
