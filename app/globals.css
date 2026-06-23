@@ -584,3 +584,81 @@ button {
   margin-top: 20px;
   display: inline-block;
 }
+
+/* ---- Admin: sub-tabs + player vote editor ---- */
+.subtabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.subtabs button {
+  flex: 1;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--txt);
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.subtabs button.active {
+  background: linear-gradient(180deg, var(--gold), var(--gold-d));
+  border-color: var(--gold);
+  color: #2a1e00;
+}
+.card h3.vhead {
+  margin: 0 0 6px;
+}
+.matchpick {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--txt);
+  border-radius: 10px;
+  font-size: 15px;
+  margin-bottom: 14px;
+}
+.voteteams {
+  font-weight: 800;
+  font-size: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.playerrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.playerrow:last-child {
+  border-bottom: none;
+}
+.playername {
+  font-weight: 700;
+  font-size: 15px;
+}
+.minipicks {
+  display: flex;
+  gap: 6px;
+}
+.minibtn {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--txt);
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+}
+.minibtn:hover {
+  border-color: var(--gold);
+}
+.minibtn.sel {
+  background: linear-gradient(180deg, var(--accent), var(--accent-d));
+  border-color: var(--accent);
+  color: #fff;
+}

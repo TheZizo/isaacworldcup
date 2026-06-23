@@ -42,6 +42,12 @@ export default function Home() {
   const [now, setNow] = useState(Date.now());
   const [msg, setMsg] = useState("");
 
+  // Admin-only state
+  const [adminTab, setAdminTab] = useState("results");
+  const [players, setPlayers] = useState([]);
+  const [adminMatchId, setAdminMatchId] = useState("");
+  const [matchVotes, setMatchVotes] = useState({});
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) =>
@@ -64,12 +70,16 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  function flash(text) {
+    setMsg(text);
+    setTimeout(() => setMsg(""), 3800);
+  }
+
   async function bootstrap() {
     setLoading(true);
     const prof = await loadProfile();
     await Promise.all([loadMatches(), loadPreds(prof)]);
     setLoading(false);
-    // Quietly pull in any finished results, then refresh if something changed.
     triggerSync();
   }
 
@@ -86,7 +96,7 @@ export default function Home() {
         await loadBoard();
       }
     } catch (_e) {
-      /* ignore – syncing is best-effort */
+      /* ignore - syncing is best-effort */
     }
   }
 
@@ -97,7 +107,6 @@ export default function Home() {
       .select("*")
       .eq("id", uid)
       .maybeSingle();
-    // The signup trigger normally creates this row; create it if missing.
     if (!data) {
       const name =
         session.user.user_metadata?.full_name ||
@@ -137,6 +146,60 @@ export default function Home() {
     if (!error) setBoard(data || []);
   }
 
+  // ---- Admin helpers ----
+  async function loadPlayers() {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .order("display_name");
+    setPlayers(data || []);
+  }
+  async function loadMatchVotes(matchId) {
+    if (!matchId) {
+      setMatchVotes({});
+      return;
+    }
+    const { data } = await supabase
+      .from("predictions")
+      .select("user_id, pick")
+      .eq("match_id", matchId);
+    const map = {};
+    (data || []).forEach((r) => {
+      map[r.user_id] = r.pick;
+    });
+    setMatchVotes(map);
+  }
+  function selectAdminMatch(id) {
+    setAdminMatchId(id);
+    loadMatchVotes(id);
+  }
+  async function setPlayerVote(userId, matchId, value) {
+    if (value === null) {
+      const { error } = await supabase
+        .from("predictions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("match_id", matchId);
+      if (error) {
+        flash("Couldn't clear vote: " + error.message);
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from("predictions")
+        .upsert(
+          { user_id: userId, match_id: matchId, pick: value },
+          { onConflict: "user_id,match_id" },
+        );
+      if (error) {
+        flash("Couldn't save vote: " + error.message);
+        return;
+      }
+    }
+    await loadMatchVotes(matchId);
+    if (profile && userId === profile.id) await loadPreds(profile);
+  }
+
   async function pick(matchId, value) {
     const prev = preds[matchId];
     setPreds((p) => ({ ...p, [matchId]: value }));
@@ -148,8 +211,7 @@ export default function Home() {
       );
     if (error) {
       setPreds((p) => ({ ...p, [matchId]: prev }));
-      setMsg("Couldn't save — this match may have kicked off already.");
-      setTimeout(() => setMsg(""), 3500);
+      flash("Couldn't save - this match may have kicked off already.");
     }
   }
 
@@ -159,11 +221,11 @@ export default function Home() {
       .update({ result: value || null })
       .eq("id", matchId);
     if (error) {
-      setMsg("Couldn't set result: " + error.message);
-      setTimeout(() => setMsg(""), 4000);
+      flash("Couldn't set result: " + error.message);
       return;
     }
     await loadMatches();
+    await loadBoard();
   }
 
   function signIn() {
@@ -210,7 +272,10 @@ export default function Home() {
         {profile?.is_admin && (
           <button
             className={tab === "admin" ? "active" : ""}
-            onClick={() => setTab("admin")}
+            onClick={() => {
+              setTab("admin");
+              loadPlayers();
+            }}
           >
             Admin
           </button>
@@ -226,7 +291,17 @@ export default function Home() {
         <Leaderboard board={board} meId={profile?.id} />
       )}
       {tab === "admin" && profile?.is_admin && (
-        <AdminResults matches={matches} onSetResult={setResult} />
+        <Admin
+          matches={matches}
+          players={players}
+          adminTab={adminTab}
+          setAdminTab={setAdminTab}
+          onSetResult={setResult}
+          adminMatchId={adminMatchId}
+          onSelectMatch={selectAdminMatch}
+          matchVotes={matchVotes}
+          onSetVote={setPlayerVote}
+        />
       )}
 
       <footer className="foot">
@@ -246,7 +321,7 @@ function Landing({ onSignIn }) {
         <div className="logo">🏆</div>
         <h1>World Cup 2026 Predictions</h1>
         <p>
-          Predict every match. Score points for each correct call — and they
+          Predict every match. Score points for each correct call - and they
           grow with every knockout round. Most points by the final wins.
         </p>
         <button className="google" onClick={onSignIn}>
@@ -281,59 +356,55 @@ function Matches({ matches, preds, now, onPick }) {
               <div key={m.id} className={"match" + (locked ? " locked" : "")}>
                 <div className="matchtop">
                   <span className={"stage s" + m.points}>
-                    {m.stage}{" "}
-                    <span className="pts">
-                      · {m.points} pt{m.points > 1 ? "s" : ""}
-                    </span>
+                    {m.stage}
+                    {m.points > 1 ? (
+                      <span className="pts"> · {m.points} pts</span>
+                    ) : null}
                   </span>
-                  <span className="time">{fmtTime(m.kickoff)}</span>
+                  <span className="time">
+                    {fmtTime(m.kickoff)}
+                    {locked ? " · locked" : ""}
+                  </span>
                 </div>
                 <div className="teams">
-                  {m.home} <span className="vs">v</span> {m.away}
+                  {m.home} <span className="vs">vs</span> {m.away}
                 </div>
                 <div className="picks">
-                  {PICKS.map(([val, label]) => {
+                  {PICKS.map(([val, lbl]) => {
                     const sel = mine === val;
-                    const correct = locked && m.result && m.result === val;
+                    const correct = m.result && m.result === val && sel;
                     return (
                       <button
                         key={val}
+                        disabled={locked}
                         className={
                           "pickbtn" +
                           (sel ? " sel" : "") +
                           (correct ? " correct" : "")
                         }
-                        disabled={locked}
                         onClick={() => onPick(m.id, val)}
                       >
-                        {label}
+                        {lbl}
                       </button>
                     );
                   })}
                 </div>
-                {locked && (
+                {m.result ? (
                   <div className="status">
-                    {m.result ? (
-                      <>
-                        Result: <b>{labelFor(m.result)}</b>
-                        {mine ? (
-                          mine === m.result ? (
-                            <span className="ok"> ✓ +{m.points}</span>
-                          ) : (
-                            <span className="no"> ✗ +0</span>
-                          )
-                        ) : (
-                          <span className="muted"> · no pick</span>
-                        )}
-                      </>
+                    Result: <strong>{labelFor(m.result)}</strong>
+                    {mine ? (
+                      mine === m.result ? (
+                        <span className="ok"> · you got it ✓</span>
+                      ) : (
+                        <span className="no"> · you missed</span>
+                      )
                     ) : (
-                      <span className="muted">
-                        Locked — waiting for result
-                        {mine ? ` · you picked ${labelFor(mine)}` : ""}
-                      </span>
+                      <span className="muted"> · no pick</span>
                     )}
                   </div>
-                )}
+                ) : locked && !mine ? (
+                  <div className="status muted">No pick — locked.</div>
+                ) : null}
               </div>
             );
           })}
@@ -344,10 +415,10 @@ function Matches({ matches, preds, now, onPick }) {
 }
 
 function Leaderboard({ board, meId }) {
-  const sorted = [...board].sort(
-    (a, b) => b.points - a.points || b.correct - a.correct,
-  );
-  if (!sorted.length) return <div className="center">No scores yet.</div>;
+  if (!board.length)
+    return (
+      <div className="center">No scores yet. Check back after kick-off.</div>
+    );
   return (
     <div className="board">
       <table>
@@ -356,17 +427,15 @@ function Leaderboard({ board, meId }) {
             <th>#</th>
             <th>Player</th>
             <th>Pts</th>
-            <th>✓</th>
+            <th>Correct</th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map((r, i) => (
+          {board.map((r, i) => (
             <tr key={r.user_id} className={r.user_id === meId ? "me" : ""}>
               <td className={i === 0 ? "rank1" : ""}>{i + 1}</td>
               <td>{r.display_name}</td>
-              <td>
-                <b>{r.points}</b>
-              </td>
+              <td>{r.points}</td>
               <td>{r.correct}</td>
             </tr>
           ))}
@@ -376,46 +445,147 @@ function Leaderboard({ board, meId }) {
   );
 }
 
+function Admin({
+  matches,
+  players,
+  adminTab,
+  setAdminTab,
+  onSetResult,
+  adminMatchId,
+  onSelectMatch,
+  matchVotes,
+  onSetVote,
+}) {
+  return (
+    <div>
+      <div className="subtabs">
+        <button
+          className={adminTab === "results" ? "active" : ""}
+          onClick={() => setAdminTab("results")}
+        >
+          Results
+        </button>
+        <button
+          className={adminTab === "votes" ? "active" : ""}
+          onClick={() => setAdminTab("votes")}
+        >
+          Player votes
+        </button>
+      </div>
+      {adminTab === "results" ? (
+        <AdminResults matches={matches} onSetResult={onSetResult} />
+      ) : (
+        <AdminVotes
+          matches={matches}
+          players={players}
+          adminMatchId={adminMatchId}
+          onSelectMatch={onSelectMatch}
+          matchVotes={matchVotes}
+          onSetVote={onSetVote}
+        />
+      )}
+    </div>
+  );
+}
+
 function AdminResults({ matches, onSetResult }) {
+  if (!matches.length) return <div className="center">No matches.</div>;
   return (
     <div className="list">
-      <div className="hint">
-        Setting a result instantly updates everyone&apos;s points and the
-        leaderboard. Results also fill in automatically as matches finish.
-      </div>
       {matches.map((m) => (
         <div key={m.id} className="match">
           <div className="matchtop">
-            <span className={"stage s" + m.points}>{m.stage}</span>
+            <span className="stage">#{m.match_no}</span>
             <span className="time">
-              {fmtDate(m.kickoff)} · {fmtTime(m.kickoff)}
+              {fmtDate(m.kickoff)} {fmtTime(m.kickoff)}
             </span>
           </div>
           <div className="teams">
-            {m.home} <span className="vs">v</span> {m.away}
+            {m.home} <span className="vs">vs</span> {m.away}
           </div>
           <div className="picks">
-            {[
-              ["home", "Home"],
-              ["draw", "Draw"],
-              ["away", "Away"],
-              ["", "Clear"],
-            ].map(([val, label]) => (
+            {PICKS.map(([val, lbl]) => (
               <button
-                key={label}
-                className={
-                  "pickbtn" +
-                  (val && m.result === val ? " sel" : "") +
-                  (!val ? " clear" : "")
-                }
-                onClick={() => onSetResult(m.id, val)}
+                key={val}
+                className={"pickbtn" + (m.result === val ? " sel" : "")}
+                onClick={() => onSetResult(m.id, m.result === val ? null : val)}
               >
-                {label}
+                {lbl}
               </button>
             ))}
           </div>
+          <div className="status muted">
+            {m.result
+              ? "Result set: " + labelFor(m.result) + " (tap again to clear)"
+              : "No result set"}
+          </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function AdminVotes({
+  matches,
+  players,
+  adminMatchId,
+  onSelectMatch,
+  matchVotes,
+  onSetVote,
+}) {
+  const m = matches.find((x) => String(x.id) === String(adminMatchId));
+  return (
+    <div className="card">
+      <h3 className="vhead">Enter players' votes</h3>
+      <p className="muted">
+        Pick a match, then set each player's prediction. Use this for votes
+        collected on WhatsApp. You can edit these anytime, even after kick-off.
+        Tap a selected button again to clear it.
+      </p>
+      <select
+        className="matchpick"
+        value={adminMatchId || ""}
+        onChange={(e) => onSelectMatch(e.target.value)}
+      >
+        <option value="">Select a match…</option>
+        {matches.map((x) => (
+          <option key={x.id} value={x.id}>
+            #{x.match_no} {x.home} vs {x.away}
+            {x.result ? "  (" + labelFor(x.result) + ")" : ""}
+          </option>
+        ))}
+      </select>
+      {m && (
+        <div className="votelist">
+          <div className="voteteams">
+            {m.home} <span className="vs">vs</span> {m.away}
+          </div>
+          {!players.length && (
+            <div className="status muted">No players yet.</div>
+          )}
+          {players.map((p) => {
+            const cur = matchVotes[p.id] || "";
+            return (
+              <div key={p.id} className="playerrow">
+                <span className="playername">{p.display_name}</span>
+                <div className="minipicks">
+                  {PICKS.map(([val, lbl]) => (
+                    <button
+                      key={val}
+                      className={"minibtn" + (cur === val ? " sel" : "")}
+                      onClick={() =>
+                        onSetVote(p.id, m.id, cur === val ? null : val)
+                      }
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
