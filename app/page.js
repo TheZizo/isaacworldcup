@@ -41,6 +41,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [msg, setMsg] = useState("");
+  const [roster, setRoster] = useState([]);
 
   // Admin-only state
   const [adminTab, setAdminTab] = useState("results");
@@ -78,9 +79,13 @@ export default function Home() {
   async function bootstrap() {
     setLoading(true);
     const prof = await loadProfile();
-    await Promise.all([loadMatches(), loadPreds(prof)]);
+    if (prof) {
+      await Promise.all([loadMatches(), loadPreds(prof)]);
+    } else {
+      await loadRoster();
+    }
     setLoading(false);
-    triggerSync();
+    if (prof) triggerSync();
   }
 
   // Fire-and-forget background sync. The site shows instantly; if a new result
@@ -102,24 +107,30 @@ export default function Home() {
 
   async function loadProfile() {
     const uid = session.user.id;
-    let { data } = await supabase
+    const { data } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", uid)
+      .eq("auth_id", uid)
       .maybeSingle();
-    if (!data) {
-      const name =
-        session.user.user_metadata?.full_name ||
-        (session.user.email || "Player").split("@")[0];
-      const ins = await supabase
-        .from("profiles")
-        .insert({ id: uid, display_name: name })
-        .select("*")
-        .maybeSingle();
-      data = ins.data || null;
-    }
     setProfile(data || null);
     return data || null;
+  }
+  async function loadRoster() {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .is("auth_id", null)
+      .order("display_name");
+    setRoster(data || []);
+  }
+  async function claim(pId) {
+    const { error } = await supabase.rpc("claim_profile", { p_id: pId });
+    if (error) {
+      flash(error.message || "Couldn't claim that name.");
+      await loadRoster();
+      return;
+    }
+    await bootstrap();
   }
   async function loadMatches() {
     const { data } = await supabase
@@ -240,6 +251,15 @@ export default function Home() {
 
   if (!session) return <Landing onSignIn={signIn} />;
   if (loading) return <div className="center">Loading…</div>;
+  if (!profile)
+    return (
+      <Claim
+        roster={roster}
+        email={session.user.email}
+        onClaim={claim}
+        onSignOut={signOut}
+      />
+    );
 
   return (
     <div className="app">
@@ -326,6 +346,37 @@ function Landing({ onSignIn }) {
         </p>
         <button className="google" onClick={onSignIn}>
           <span className="g">G</span> Sign in with Google
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Claim({ roster, email, onClaim, onSignOut }) {
+  return (
+    <div className="landing">
+      <div className="hero claim">
+        <div className="logo">🏆</div>
+        <h1>Claim your name</h1>
+        <p>
+          You're signed in as {email}. Tap your name below to link it to this
+          login — you only do this once.
+        </p>
+        {!roster.length ? (
+          <p className="muted">
+            All names are claimed. If yours is missing, ask the admin to add it.
+          </p>
+        ) : (
+          <div className="namecard">
+            {roster.map((p) => (
+              <button key={p.id} className="row" onClick={() => onClaim(p.id)}>
+                {p.display_name}
+              </button>
+            ))}
+          </div>
+        )}
+        <button className="link" onClick={onSignOut}>
+          Sign out
         </button>
       </div>
     </div>
