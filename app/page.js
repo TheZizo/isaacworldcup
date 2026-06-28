@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const PICKS = [
@@ -148,10 +148,153 @@ function flag(name) {
   return FLAGS[k] || "";
 }
 
+// --- Real flag images (served by flagcdn.com) ---------------------------
+// Map normalized country name -> ISO 3166-1 alpha-2 code. The home nations
+// use special sub-region codes (gb-eng / gb-sct / gb-wls).
+const ISO = {
+  southafrica: "za",
+  canada: "ca",
+  germany: "de",
+  paraguay: "py",
+  netherlands: "nl",
+  morocco: "ma",
+  brazil: "br",
+  japan: "jp",
+  france: "fr",
+  sweden: "se",
+  ivorycoast: "ci",
+  cotedivoire: "ci",
+  norway: "no",
+  mexico: "mx",
+  ecuador: "ec",
+  england: "gb-eng",
+  drcongo: "cd",
+  congodr: "cd",
+  usa: "us",
+  unitedstates: "us",
+  bosniaherzegovina: "ba",
+  bosniaandherzegovina: "ba",
+  belgium: "be",
+  senegal: "sn",
+  portugal: "pt",
+  croatia: "hr",
+  spain: "es",
+  austria: "at",
+  switzerland: "ch",
+  algeria: "dz",
+  argentina: "ar",
+  capeverde: "cv",
+  caboverde: "cv",
+  colombia: "co",
+  ghana: "gh",
+  australia: "au",
+  egypt: "eg",
+  uruguay: "uy",
+  southkorea: "kr",
+  korearepublic: "kr",
+  iran: "ir",
+  qatar: "qa",
+  saudiarabia: "sa",
+  tunisia: "tn",
+  nigeria: "ng",
+  cameroon: "cm",
+  denmark: "dk",
+  poland: "pl",
+  serbia: "rs",
+  wales: "gb-wls",
+  scotland: "gb-sct",
+  italy: "it",
+  turkey: "tr",
+  turkiye: "tr",
+  ukraine: "ua",
+  czechrepublic: "cz",
+  czechia: "cz",
+  greece: "gr",
+  romania: "ro",
+  hungary: "hu",
+  peru: "pe",
+  chile: "cl",
+  venezuela: "ve",
+  panama: "pa",
+  costarica: "cr",
+  jamaica: "jm",
+  honduras: "hn",
+  newzealand: "nz",
+  jordan: "jo",
+  uzbekistan: "uz",
+  iraq: "iq",
+  uae: "ae",
+  china: "cn",
+  indonesia: "id",
+  thailand: "th",
+  mali: "ml",
+  burkinafaso: "bf",
+  kenya: "ke",
+  zambia: "zm",
+  angola: "ao",
+  guinea: "gn",
+  gabon: "ga",
+  namibia: "na",
+  benin: "bj",
+  mozambique: "mz",
+  uganda: "ug",
+  tanzania: "tz",
+  slovenia: "si",
+  slovakia: "sk",
+  finland: "fi",
+  iceland: "is",
+  ireland: "ie",
+  albania: "al",
+  georgia: "ge",
+  montenegro: "me",
+  northmacedonia: "mk",
+  israel: "il",
+  bolivia: "bo",
+  suriname: "sr",
+  curacao: "cw",
+  haiti: "ht",
+  elsalvador: "sv",
+  guatemala: "gt",
+  trinidadandtobago: "tt",
+  bahrain: "bh",
+  oman: "om",
+  kuwait: "kw",
+  palestine: "ps",
+  lebanon: "lb",
+  syria: "sy",
+};
+function flagCode(name) {
+  if (!name) return "";
+  const k = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[^a-z]/g, "");
+  return ISO[k] || "";
+}
+function flagSrc(code) {
+  return "https://flagcdn.com/w80/" + code + ".png";
+}
+function flagSrc2x(code) {
+  return "https://flagcdn.com/w160/" + code + ".png";
+}
+function FlagImg({ code, name }) {
+  const c = code || flagCode(name);
+  if (!c) return null;
+  return (
+    <img
+      className="fl"
+      src={flagSrc(c)}
+      srcSet={flagSrc(c) + " 1x, " + flagSrc2x(c) + " 2x"}
+      alt=""
+      loading="lazy"
+    />
+  );
+}
+
 function optionsFor(m) {
-  const o = [{ val: "home", label: m.home, flag: flag(m.home) }];
-  if (!(m.points > 1)) o.push({ val: "draw", label: "Draw", flag: "" });
-  o.push({ val: "away", label: m.away, flag: flag(m.away) });
+  const o = [{ val: "home", label: m.home, code: flagCode(m.home) }];
+  if (!(m.points > 1)) o.push({ val: "draw", label: "Draw", code: "" });
+  o.push({ val: "away", label: m.away, code: flagCode(m.away) });
   return o;
 }
 
@@ -212,6 +355,101 @@ function avatarClass(name) {
   return "av" + (h % 6);
 }
 
+// Lightweight, dependency-free confetti burst.
+function fireConfetti(count) {
+  if (typeof document === "undefined") return;
+  const colors = [
+    "#19c25c",
+    "#ffd34d",
+    "#2fd9e0",
+    "#b98bff",
+    "#ff5b6a",
+    "#ffffff",
+  ];
+  const root = document.createElement("div");
+  root.className = "confetti-root";
+  document.body.appendChild(root);
+  const n = count || 90;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i");
+    p.className = "confetti-piece";
+    const size = 6 + Math.random() * 8;
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.width = size + "px";
+    p.style.height = size * 0.6 + "px";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDuration = 2.2 + Math.random() * 1.8 + "s";
+    p.style.animationDelay = Math.random() * 0.5 + "s";
+    if (Math.random() > 0.5) p.style.borderRadius = "50%";
+    root.appendChild(p);
+  }
+  setTimeout(() => root.remove(), 5200);
+}
+
+// Decorative stadium illustration for the landing/claim hero.
+function StadiumArt() {
+  return (
+    <div className="heroart" aria-hidden="true">
+      <svg viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="pitch" cx="50%" cy="45%" r="65%">
+            <stop offset="0%" stopColor="#22a85f" />
+            <stop offset="100%" stopColor="#0b6536" />
+          </radialGradient>
+          <linearGradient id="stand" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1b4030" />
+            <stop offset="100%" stopColor="#0a1f14" />
+          </linearGradient>
+          <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fff7d6" stopOpacity="0" />
+            <stop offset="100%" stopColor="#ffe48a" stopOpacity="0.45" />
+          </linearGradient>
+        </defs>
+        <polygon points="40,6 72,6 122,156 6,156" fill="url(#beam)" />
+        <polygon points="280,6 248,6 198,156 314,156" fill="url(#beam)" />
+        <ellipse cx="160" cy="98" rx="150" ry="56" fill="url(#stand)" />
+        <ellipse cx="160" cy="98" rx="120" ry="43" fill="#0a1f14" />
+        <ellipse cx="160" cy="98" rx="104" ry="35" fill="url(#pitch)" />
+        <line
+          x1="160"
+          y1="65"
+          x2="160"
+          y2="131"
+          stroke="#fff"
+          strokeOpacity="0.5"
+          strokeWidth="1.4"
+        />
+        <ellipse
+          cx="160"
+          cy="98"
+          rx="19"
+          ry="8"
+          stroke="#fff"
+          strokeOpacity="0.5"
+          strokeWidth="1.4"
+        />
+        <ellipse
+          cx="160"
+          cy="98"
+          rx="104"
+          ry="35"
+          stroke="#fff"
+          strokeOpacity="0.32"
+          strokeWidth="1.4"
+        />
+        <g stroke="#cfe7d8" strokeWidth="2" strokeOpacity="0.6">
+          <line x1="55" y1="12" x2="55" y2="72" />
+          <line x1="265" y1="12" x2="265" y2="72" />
+        </g>
+        <g fill="#fff3c4">
+          <circle cx="55" cy="10" r="5" />
+          <circle cx="265" cy="10" r="5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 export default function Home() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -229,6 +467,8 @@ export default function Home() {
   const [players, setPlayers] = useState([]);
   const [adminMatchId, setAdminMatchId] = useState("");
   const [matchVotes, setMatchVotes] = useState({});
+  const [theme, setTheme] = useState("dark");
+  const topCelebratedRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -251,6 +491,56 @@ export default function Home() {
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // Apply the saved colour theme on mount.
+  useEffect(() => {
+    let t = "dark";
+    try {
+      t = localStorage.getItem("wc-theme") || "dark";
+    } catch (_e) {}
+    setTheme(t);
+    if (typeof document !== "undefined")
+      document.documentElement.dataset.theme = t;
+  }, []);
+
+  // Confetti when a match you predicted correctly gets resolved (once each).
+  useEffect(() => {
+    if (!profile || !matches.length) return;
+    let done = [];
+    try {
+      done = JSON.parse(localStorage.getItem("wc-celebrated") || "[]");
+    } catch (_e) {}
+    const seen = new Set(done);
+    const wins = matches.filter(
+      (m) => m.result && preds[m.id] === m.result && !seen.has(m.id),
+    );
+    if (wins.length) {
+      fireConfetti(Math.min(170, 70 + wins.length * 14));
+      wins.forEach((m) => seen.add(m.id));
+      try {
+        localStorage.setItem("wc-celebrated", JSON.stringify([...seen]));
+      } catch (_e) {}
+      flash(
+        wins.length === 1
+          ? "You called it right! \uD83C\uDF89"
+          : "You nailed " + wins.length + " results! \uD83C\uDF89",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, preds, profile]);
+
+  // Confetti when you reach #1 on the leaderboard (once per session).
+  useEffect(() => {
+    if (!profile || !board.length) return;
+    const idx = board.findIndex((r) => r.user_id === profile.id);
+    if (idx === 0 && board[0].points > 0 && !topCelebratedRef.current) {
+      topCelebratedRef.current = true;
+      fireConfetti(150);
+    } else if (idx !== 0) {
+      topCelebratedRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, profile]);
 
   function flash(text) {
     setMsg(text);
@@ -420,6 +710,16 @@ export default function Home() {
     await loadBoard();
   }
 
+  function toggleTheme() {
+    const t = theme === "dark" ? "light" : "dark";
+    setTheme(t);
+    if (typeof document !== "undefined")
+      document.documentElement.dataset.theme = t;
+    try {
+      localStorage.setItem("wc-theme", t);
+    } catch (_e) {}
+  }
+
   function signIn() {
     supabase.auth.signInWithOAuth({
       provider: "google",
@@ -463,6 +763,14 @@ export default function Home() {
               #{meIdx + 1} · {meRow.points} pts
             </span>
           )}
+          <button
+            className="themetoggle"
+            onClick={toggleTheme}
+            aria-label="Toggle light or dark mode"
+            title="Toggle theme"
+          >
+            {theme === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+          </button>
           <div className={"avatar " + avatarClass(profile.display_name)}>
             {initials(profile.display_name)}
           </div>
@@ -544,6 +852,7 @@ function Landing({ onSignIn }) {
     <div className="landing">
       <div className="landing-bg" />
       <div className="hero">
+        <StadiumArt />
         <div className="logo">🏆</div>
         <h1>
           World Cup 2026
@@ -713,7 +1022,7 @@ function MatchCard({ m, mine, now, onPick }) {
               className={cls}
               onClick={() => onPick(m.id, o.val)}
             >
-              {o.flag && <span className="fl">{o.flag}</span>}
+              {o.code && <FlagImg code={o.code} />}
               <span className="tn">{o.label}</span>
               {sel && <span className="chk">✓</span>}
             </button>
@@ -859,7 +1168,7 @@ function AdminResults({ matches, onSetResult }) {
                   onSetResult(m.id, m.result === o.val ? null : o.val)
                 }
               >
-                {o.flag && <span className="fl">{o.flag}</span>}
+                {o.code && <FlagImg code={o.code} />}
                 <span className="tn">{o.label}</span>
               </button>
             ))}
@@ -908,8 +1217,8 @@ function AdminVotes({
       {m && (
         <div className="votelist">
           <div className="voteteams">
-            {flag(m.home)} {m.home} <span className="vs">vs</span> {m.away}{" "}
-            {flag(m.away)}
+            <FlagImg name={m.home} /> {m.home} <span className="vs">vs</span>{" "}
+            {m.away} <FlagImg name={m.away} />
           </div>
           {!players.length && <div className="hint">No players yet.</div>}
           {players.map((p) => {
