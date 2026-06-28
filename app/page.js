@@ -17,6 +17,151 @@ function picksFor(m) {
   return m && m.points > 1 ? KO_PICKS : PICKS;
 }
 
+const ROUND_LABEL = {
+  1: "Groups",
+  2: "Round of 32",
+  3: "Round of 16",
+  4: "Quarters",
+  5: "Semis",
+  6: "3rd place",
+  7: "Final",
+};
+
+const FLAGS = {
+  southafrica: "🇿🇦",
+  canada: "🇨🇦",
+  germany: "🇩🇪",
+  paraguay: "🇵🇾",
+  netherlands: "🇳🇱",
+  morocco: "🇲🇦",
+  brazil: "🇧🇷",
+  japan: "🇯🇵",
+  france: "🇫🇷",
+  sweden: "🇸🇪",
+  ivorycoast: "🇨🇮",
+  cotedivoire: "🇨🇮",
+  norway: "🇳🇴",
+  mexico: "🇲🇽",
+  ecuador: "🇪🇨",
+  england: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  drcongo: "🇨🇩",
+  congodr: "🇨🇩",
+  usa: "🇺🇸",
+  unitedstates: "🇺🇸",
+  bosniaherzegovina: "🇧🇦",
+  bosniaandherzegovina: "🇧🇦",
+  belgium: "🇧🇪",
+  senegal: "🇸🇳",
+  portugal: "🇵🇹",
+  croatia: "🇭🇷",
+  spain: "🇪🇸",
+  austria: "🇦🇹",
+  switzerland: "🇨🇭",
+  algeria: "🇩🇿",
+  argentina: "🇦🇷",
+  capeverde: "🇨🇻",
+  caboverde: "🇨🇻",
+  colombia: "🇨🇴",
+  ghana: "🇬🇭",
+  australia: "🇦🇺",
+  egypt: "🇪🇬",
+  uruguay: "🇺🇾",
+  southkorea: "🇰🇷",
+  korearepublic: "🇰🇷",
+  iran: "🇮🇷",
+  qatar: "🇶🇦",
+  saudiarabia: "🇸🇦",
+  tunisia: "🇹🇳",
+  nigeria: "🇳🇬",
+  cameroon: "🇨🇲",
+  denmark: "🇩🇰",
+  poland: "🇵🇱",
+  serbia: "🇷🇸",
+  wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+  scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  italy: "🇮🇹",
+  turkey: "🇹🇷",
+  turkiye: "🇹🇷",
+  ukraine: "🇺🇦",
+  czechrepublic: "🇨🇿",
+  czechia: "🇨🇿",
+  greece: "🇬🇷",
+  romania: "🇷🇴",
+  hungary: "🇭🇺",
+  peru: "🇵🇪",
+  chile: "🇨🇱",
+  venezuela: "🇻🇪",
+  panama: "🇵🇦",
+  costarica: "🇨🇷",
+  jamaica: "🇯🇲",
+  honduras: "🇭🇳",
+  newzealand: "🇳🇿",
+  jordan: "🇯🇴",
+  uzbekistan: "🇺🇿",
+  iraq: "🇮🇶",
+  uae: "🇦🇪",
+  china: "🇨🇳",
+  indonesia: "🇮🇩",
+  thailand: "🇹🇭",
+  mali: "🇲🇱",
+  burkinafaso: "🇧🇫",
+  kenya: "🇰🇪",
+  zambia: "🇿🇲",
+  angola: "🇦🇴",
+  guinea: "🇬🇳",
+  gabon: "🇬🇦",
+  namibia: "🇳🇦",
+  benin: "🇧🇯",
+  mozambique: "🇲🇿",
+  uganda: "🇺🇬",
+  tanzania: "🇹🇿",
+  slovenia: "🇸🇮",
+  slovakia: "🇸🇰",
+  finland: "🇫🇮",
+  iceland: "🇮🇸",
+  ireland: "🇮🇪",
+  albania: "🇦🇱",
+  georgia: "🇬🇪",
+  montenegro: "🇲🇪",
+  northmacedonia: "🇲🇰",
+  israel: "🇮🇱",
+  bolivia: "🇧🇴",
+  suriname: "🇸🇷",
+  curacao: "🇨🇼",
+  haiti: "🇭🇹",
+  elsalvador: "🇸🇻",
+  guatemala: "🇬🇹",
+  trinidadandtobago: "🇹🇹",
+  bahrain: "🇧🇭",
+  oman: "🇴🇲",
+  kuwait: "🇰🇼",
+  palestine: "🇵🇸",
+  lebanon: "🇱🇧",
+  syria: "🇸🇾",
+};
+function flag(name) {
+  if (!name) return "";
+  const k = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[^a-z]/g, "");
+  return FLAGS[k] || "";
+}
+
+function optionsFor(m) {
+  const o = [{ val: "home", label: m.home, flag: flag(m.home) }];
+  if (!(m.points > 1)) o.push({ val: "draw", label: "Draw", flag: "" });
+  o.push({ val: "away", label: m.away, flag: flag(m.away) });
+  return o;
+}
+
+function resultLabel(m) {
+  if (!m.result) return "";
+  if (m.result === "home") return m.home;
+  if (m.result === "away") return m.away;
+  return "Draw";
+}
+
 function labelFor(v) {
   return v === "home"
     ? "Home"
@@ -26,6 +171,7 @@ function labelFor(v) {
         ? "Away"
         : "";
 }
+
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString([], {
     weekday: "short",
@@ -38,6 +184,32 @@ function fmtTime(iso) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+function lockInfo(iso, now) {
+  const ms = new Date(iso).getTime() - now;
+  if (ms <= 0) return { locked: true, soon: false, text: "Locked" };
+  const mins = Math.floor(ms / 60000);
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  const mm = mins % 60;
+  let text;
+  if (d > 0) text = "Locks in " + d + "d " + h + "h";
+  else if (h > 0) text = "Locks in " + h + "h " + mm + "m";
+  else text = "Locks in " + mm + "m";
+  return { locked: false, soon: mins < 90, text };
+}
+
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  const a = parts[0] ? parts[0][0] : "";
+  const b = parts[1] ? parts[1][0] : "";
+  return (a + b).toUpperCase() || "?";
+}
+function avatarClass(name) {
+  const s = name || "";
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return "av" + (h % 6);
 }
 
 export default function Home() {
@@ -89,7 +261,7 @@ export default function Home() {
     setLoading(true);
     const prof = await loadProfile();
     if (prof) {
-      await Promise.all([loadMatches(), loadPreds(prof)]);
+      await Promise.all([loadMatches(), loadPreds(prof), loadBoard()]);
     } else {
       await loadRoster();
     }
@@ -259,7 +431,12 @@ export default function Home() {
   }
 
   if (!session) return <Landing onSignIn={signIn} />;
-  if (loading) return <div className="center">Loading…</div>;
+  if (loading)
+    return (
+      <div className="center">
+        <div className="spinner" />
+      </div>
+    );
   if (!profile)
     return (
       <Claim
@@ -270,75 +447,94 @@ export default function Home() {
       />
     );
 
+  const meIdx = board.findIndex((r) => r.user_id === profile.id);
+  const meRow = meIdx >= 0 ? board[meIdx] : null;
+
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">🏆 World Cup Predictions</div>
+        <div className="brand">
+          <span className="brandmark">🏆</span>
+          <span className="brandtext">WC Predictions</span>
+        </div>
         <div className="user">
-          <span>{profile?.display_name}</span>
+          {meRow && (
+            <span className="rankchip">
+              #{meIdx + 1} · {meRow.points} pts
+            </span>
+          )}
+          <div className={"avatar " + avatarClass(profile.display_name)}>
+            {initials(profile.display_name)}
+          </div>
           <button className="link" onClick={signOut}>
             Sign out
           </button>
         </div>
       </header>
 
-      <nav className="tabs">
-        <button
-          className={tab === "matches" ? "active" : ""}
-          onClick={() => setTab("matches")}
-        >
-          Matches
-        </button>
-        <button
-          className={tab === "leaderboard" ? "active" : ""}
-          onClick={() => {
-            setTab("leaderboard");
-            loadBoard();
-          }}
-        >
-          Leaderboard
-        </button>
-        {profile?.is_admin && (
-          <button
-            className={tab === "admin" ? "active" : ""}
-            onClick={() => {
-              setTab("admin");
-              loadPlayers();
-            }}
-          >
-            Admin
-          </button>
-        )}
-      </nav>
-
       {msg && <div className="toast">{msg}</div>}
 
-      {tab === "matches" && (
-        <Matches matches={matches} preds={preds} now={now} onPick={pick} />
-      )}
-      {tab === "leaderboard" && (
-        <Leaderboard board={board} meId={profile?.id} />
-      )}
-      {tab === "admin" && profile?.is_admin && (
-        <Admin
-          matches={matches}
-          players={players}
-          adminTab={adminTab}
-          setAdminTab={setAdminTab}
-          onSetResult={setResult}
-          adminMatchId={adminMatchId}
-          onSelectMatch={selectAdminMatch}
-          matchVotes={matchVotes}
-          onSetVote={setPlayerVote}
-        />
-      )}
+      <main className="content">
+        {tab === "matches" && (
+          <Matches matches={matches} preds={preds} now={now} onPick={pick} />
+        )}
+        {tab === "leaderboard" && (
+          <Leaderboard board={board} meId={profile.id} />
+        )}
+        {tab === "admin" && profile.is_admin && (
+          <Admin
+            matches={matches}
+            players={players}
+            adminTab={adminTab}
+            setAdminTab={setAdminTab}
+            onSetResult={setResult}
+            adminMatchId={adminMatchId}
+            onSelectMatch={selectAdminMatch}
+            matchVotes={matchVotes}
+            onSetVote={setPlayerVote}
+          />
+        )}
 
-      <footer className="foot">
-        1 point per correct pick in the group stage, then +1 each round (Round
-        of 32 = 2, Round of 16 = 3, QF = 4, SF = 5, 3rd place = 6, Final = 7).
-        <br />
-        Your pick locks automatically at kick-off.
-      </footer>
+        <footer className="foot">
+          1 point per correct pick in the group stage, then more each round (R32
+          = 2, R16 = 3, QF = 4, SF = 5, 3rd = 6, Final = 7). Picks lock at
+          kick-off.
+        </footer>
+      </main>
+
+      <nav className="bottomnav">
+        <div className="bottomnav-inner">
+          <button
+            className={tab === "matches" ? "active" : ""}
+            onClick={() => setTab("matches")}
+          >
+            <span className="ico">⚽</span>
+            <span className="lbl">Matches</span>
+          </button>
+          <button
+            className={tab === "leaderboard" ? "active" : ""}
+            onClick={() => {
+              setTab("leaderboard");
+              loadBoard();
+            }}
+          >
+            <span className="ico">🏆</span>
+            <span className="lbl">Ranking</span>
+          </button>
+          {profile.is_admin && (
+            <button
+              className={tab === "admin" ? "active" : ""}
+              onClick={() => {
+                setTab("admin");
+                loadPlayers();
+              }}
+            >
+              <span className="ico">⚙️</span>
+              <span className="lbl">Admin</span>
+            </button>
+          )}
+        </div>
+      </nav>
     </div>
   );
 }
@@ -346,16 +542,27 @@ export default function Home() {
 function Landing({ onSignIn }) {
   return (
     <div className="landing">
+      <div className="landing-bg" />
       <div className="hero">
         <div className="logo">🏆</div>
-        <h1>World Cup 2026 Predictions</h1>
-        <p>
-          Predict every match. Score points for each correct call - and they
-          grow with every knockout round. Most points by the final wins.
+        <h1>
+          World Cup 2026
+          <br />
+          <span className="grad">Predictions League</span>
+        </h1>
+        <p className="sub">
+          Call every match. Earn points for each correct pick — worth more as
+          the rounds get bigger. Top the table by the final to win.
         </p>
+        <div className="chips">
+          <span className="chip">⚽ 104 matches</span>
+          <span className="chip">📈 Live leaderboard</span>
+          <span className="chip">🔒 Locks at kickoff</span>
+        </div>
         <button className="google" onClick={onSignIn}>
-          <span className="g">G</span> Sign in with Google
+          <span className="g">G</span> Continue with Google
         </button>
+        <p className="fineprint">Sign in once, then claim your name.</p>
       </div>
     </div>
   );
@@ -364,12 +571,13 @@ function Landing({ onSignIn }) {
 function Claim({ roster, email, onClaim, onSignOut }) {
   return (
     <div className="landing">
+      <div className="landing-bg" />
       <div className="hero claim">
         <div className="logo">🏆</div>
         <h1>Claim your name</h1>
-        <p>
-          You're signed in as {email}. Tap your name below to link it to this
-          login — you only do this once.
+        <p className="sub">
+          You're signed in as <strong>{email}</strong>. Tap your name below to
+          link it to this login — you only do this once.
         </p>
         {!roster.length ? (
           <p className="muted">
@@ -379,7 +587,11 @@ function Claim({ roster, email, onClaim, onSignOut }) {
           <div className="namecard">
             {roster.map((p) => (
               <button key={p.id} className="row" onClick={() => onClaim(p.id)}>
-                {p.display_name}
+                <span className={"avatar " + avatarClass(p.display_name)}>
+                  {initials(p.display_name)}
+                </span>
+                <span className="nm">{p.display_name}</span>
+                <span className="go">Claim →</span>
               </button>
             ))}
           </div>
@@ -394,16 +606,7 @@ function Claim({ roster, email, onClaim, onSignOut }) {
 
 function Matches({ matches, preds, now, onPick }) {
   const [round, setRound] = useState(null);
-  if (!matches.length) return <div className="center">No matches yet.</div>;
-  const ROUND_LABEL = {
-    1: "Groups",
-    2: "Round of 32",
-    3: "Round of 16",
-    4: "Quarters",
-    5: "Semis",
-    6: "3rd place",
-    7: "Final",
-  };
+  if (!matches.length) return <div className="empty">No matches yet.</div>;
   const rounds = [...new Set(matches.map((m) => m.points))].sort(
     (a, b) => a - b,
   );
@@ -411,6 +614,8 @@ function Matches({ matches, preds, now, onPick }) {
   const defaultRound = upcoming ? upcoming.points : rounds[rounds.length - 1];
   const active = round != null && rounds.includes(round) ? round : defaultRound;
   const shown = matches.filter((m) => m.points === active);
+  const openMatches = shown.filter((m) => new Date(m.kickoff).getTime() > now);
+  const predicted = openMatches.filter((m) => preds[m.id]).length;
   const groups = [];
   let last = null;
   shown.forEach((m) => {
@@ -422,7 +627,7 @@ function Matches({ matches, preds, now, onPick }) {
     groups[groups.length - 1].items.push(m);
   });
   return (
-    <div className="list">
+    <div className="matchespane">
       <div className="roundtabs">
         {rounds.map((r) => (
           <button
@@ -434,70 +639,103 @@ function Matches({ matches, preds, now, onPick }) {
           </button>
         ))}
       </div>
+      <div className="roundmeta">
+        <span className="roundtitle">{ROUND_LABEL[active] || "Stage"}</span>
+        {openMatches.length > 0 && (
+          <span
+            className={
+              "progress" + (predicted === openMatches.length ? " done" : "")
+            }
+          >
+            {predicted}/{openMatches.length} predicted
+          </span>
+        )}
+      </div>
       {groups.map((g) => (
-        <div key={g.date} className="daygroup">
+        <section key={g.date} className="daygroup">
           <div className="dayhead">{g.date}</div>
-          {g.items.map((m) => {
-            const locked = new Date(m.kickoff).getTime() <= now;
-            const mine = preds[m.id];
-            return (
-              <div key={m.id} className={"match" + (locked ? " locked" : "")}>
-                <div className="matchtop">
-                  <span className={"stage s" + m.points}>
-                    {m.stage}
-                    {m.points > 1 ? (
-                      <span className="pts"> · {m.points} pts</span>
-                    ) : null}
-                  </span>
-                  <span className="time">
-                    {fmtTime(m.kickoff)}
-                    {locked ? " · locked" : ""}
-                  </span>
-                </div>
-                <div className="teams">
-                  {m.home} <span className="vs">vs</span> {m.away}
-                </div>
-                <div className="picks">
-                  {picksFor(m).map(([val, lbl]) => {
-                    const sel = mine === val;
-                    const correct = m.result && m.result === val && sel;
-                    return (
-                      <button
-                        key={val}
-                        disabled={locked}
-                        className={
-                          "pickbtn" +
-                          (sel ? " sel" : "") +
-                          (correct ? " correct" : "")
-                        }
-                        onClick={() => onPick(m.id, val)}
-                      >
-                        {lbl}
-                      </button>
-                    );
-                  })}
-                </div>
-                {m.result ? (
-                  <div className="status">
-                    Result: <strong>{labelFor(m.result)}</strong>
-                    {mine ? (
-                      mine === m.result ? (
-                        <span className="ok"> · you got it ✓</span>
-                      ) : (
-                        <span className="no"> · you missed</span>
-                      )
-                    ) : (
-                      <span className="muted"> · no pick</span>
-                    )}
-                  </div>
-                ) : locked && !mine ? (
-                  <div className="status muted">No pick — locked.</div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+          {g.items.map((m) => (
+            <MatchCard
+              key={m.id}
+              m={m}
+              mine={preds[m.id]}
+              now={now}
+              onPick={onPick}
+            />
+          ))}
+        </section>
       ))}
+    </div>
+  );
+}
+
+function MatchCard({ m, mine, now, onPick }) {
+  const li = lockInfo(m.kickoff, now);
+  const locked = li.locked;
+  const opts = optionsFor(m);
+  return (
+    <div
+      className={
+        "mcard" + (locked ? " locked" : "") + (m.result ? " resolved" : "")
+      }
+    >
+      <div className="mcard-top">
+        <span className={"stagepill s" + m.points}>{m.stage}</span>
+        <span className="ptspill">
+          {m.points} pt{m.points > 1 ? "s" : ""}
+        </span>
+        <span
+          className={
+            "lockpill" + (li.soon ? " soon" : "") + (locked ? " locked" : "")
+          }
+        >
+          {locked ? "🔒 Locked" : "⏱ " + li.text}
+        </span>
+      </div>
+      <div className="mcard-time">
+        {fmtDate(m.kickoff)} · {fmtTime(m.kickoff)}
+      </div>
+      <div className={"picrow" + (opts.length === 2 ? " two" : "")}>
+        {opts.map((o) => {
+          const sel = mine === o.val;
+          const isResult = m.result === o.val;
+          let cls = "teampick";
+          if (o.val === "draw") cls += " draw";
+          if (sel) cls += " sel";
+          if (m.result) {
+            if (isResult) cls += " correct";
+            else if (sel) cls += " wrong";
+          }
+          return (
+            <button
+              key={o.val}
+              disabled={locked}
+              className={cls}
+              onClick={() => onPick(m.id, o.val)}
+            >
+              {o.flag && <span className="fl">{o.flag}</span>}
+              <span className="tn">{o.label}</span>
+              {sel && <span className="chk">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+      {m.result ? (
+        <div className="mcard-result">
+          Result: <strong>{resultLabel(m)}</strong>
+          {mine ? (
+            mine === m.result ? (
+              <span className="ok"> · you nailed it ✓</span>
+            ) : (
+              <span className="no"> · missed</span>
+            )
+          ) : (
+            <span className="muted"> · no pick</span>
+          )}
+        </div>
+      ) : locked && !mine ? (
+        <div className="mcard-result muted">Locked — no pick made</div>
+      ) : null}
     </div>
   );
 }
@@ -505,30 +743,50 @@ function Matches({ matches, preds, now, onPick }) {
 function Leaderboard({ board, meId }) {
   if (!board.length)
     return (
-      <div className="center">No scores yet. Check back after kick-off.</div>
+      <div className="empty">No scores yet. Check back after kick-off.</div>
     );
+  const meIdx = board.findIndex((r) => r.user_id === meId);
+  const me = meIdx >= 0 ? board[meIdx] : null;
   return (
-    <div className="board">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Player</th>
-            <th>Pts</th>
-            <th>Correct</th>
-          </tr>
-        </thead>
-        <tbody>
-          {board.map((r, i) => (
-            <tr key={r.user_id} className={r.user_id === meId ? "me" : ""}>
-              <td className={i === 0 ? "rank1" : ""}>{i + 1}</td>
-              <td>{r.display_name}</td>
-              <td>{r.points}</td>
-              <td>{r.correct}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="lbpane">
+      {me && (
+        <div className="myrank">
+          <div className="myrank-pos">#{meIdx + 1}</div>
+          <div className="myrank-mid">
+            <div className="myrank-name">
+              {me.display_name} <span className="you">YOU</span>
+            </div>
+            <div className="myrank-sub">{me.correct} correct picks</div>
+          </div>
+          <div className="myrank-pts">
+            <span className="n">{me.points}</span>
+            <span className="u">pts</span>
+          </div>
+        </div>
+      )}
+      <div className="lblist">
+        {board.map((r, i) => {
+          const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
+          return (
+            <div
+              key={r.user_id}
+              className={
+                "lbrow" +
+                (r.user_id === meId ? " me" : "") +
+                (i < 3 ? " top" : "")
+              }
+            >
+              <div className="lbrank">{medal || i + 1}</div>
+              <div className={"avatar " + avatarClass(r.display_name)}>
+                {initials(r.display_name)}
+              </div>
+              <div className="lbname">{r.display_name}</div>
+              <div className="lbcorrect">{r.correct} ✓</div>
+              <div className="lbpts">{r.points}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -577,34 +835,38 @@ function Admin({
 }
 
 function AdminResults({ matches, onSetResult }) {
-  if (!matches.length) return <div className="center">No matches.</div>;
+  if (!matches.length) return <div className="empty">No matches.</div>;
   return (
     <div className="list">
       {matches.map((m) => (
-        <div key={m.id} className="match">
-          <div className="matchtop">
-            <span className="stage">#{m.match_no}</span>
-            <span className="time">
+        <div key={m.id} className="mcard">
+          <div className="mcard-top">
+            <span className={"stagepill s" + m.points}>#{m.match_no}</span>
+            <span className="lockpill">
               {fmtDate(m.kickoff)} {fmtTime(m.kickoff)}
             </span>
           </div>
-          <div className="teams">
-            {m.home} <span className="vs">vs</span> {m.away}
-          </div>
-          <div className="picks">
-            {picksFor(m).map(([val, lbl]) => (
+          <div className="picrow">
+            {optionsFor(m).map((o) => (
               <button
-                key={val}
-                className={"pickbtn" + (m.result === val ? " sel" : "")}
-                onClick={() => onSetResult(m.id, m.result === val ? null : val)}
+                key={o.val}
+                className={
+                  "teampick" +
+                  (m.result === o.val ? " sel correct" : "") +
+                  (o.val === "draw" ? " draw" : "")
+                }
+                onClick={() =>
+                  onSetResult(m.id, m.result === o.val ? null : o.val)
+                }
               >
-                {lbl}
+                {o.flag && <span className="fl">{o.flag}</span>}
+                <span className="tn">{o.label}</span>
               </button>
             ))}
           </div>
-          <div className="status muted">
+          <div className="mcard-result muted">
             {m.result
-              ? "Result set: " + labelFor(m.result) + " (tap again to clear)"
+              ? "Result set: " + resultLabel(m) + " (tap again to clear)"
               : "No result set"}
           </div>
         </div>
@@ -625,7 +887,7 @@ function AdminVotes({
   return (
     <div className="card">
       <h3 className="vhead">Enter players' votes</h3>
-      <p className="muted">
+      <p className="hint">
         Pick a match, then set each player's prediction. Use this for votes
         collected on WhatsApp. You can edit these anytime, even after kick-off.
         Tap a selected button again to clear it.
@@ -639,23 +901,27 @@ function AdminVotes({
         {matches.map((x) => (
           <option key={x.id} value={x.id}>
             #{x.match_no} {x.home} vs {x.away}
-            {x.result ? "  (" + labelFor(x.result) + ")" : ""}
+            {x.result ? "  (" + resultLabel(x) + ")" : ""}
           </option>
         ))}
       </select>
       {m && (
         <div className="votelist">
           <div className="voteteams">
-            {m.home} <span className="vs">vs</span> {m.away}
+            {flag(m.home)} {m.home} <span className="vs">vs</span> {m.away}{" "}
+            {flag(m.away)}
           </div>
-          {!players.length && (
-            <div className="status muted">No players yet.</div>
-          )}
+          {!players.length && <div className="hint">No players yet.</div>}
           {players.map((p) => {
             const cur = matchVotes[p.id] || "";
             return (
               <div key={p.id} className="playerrow">
-                <span className="playername">{p.display_name}</span>
+                <span className="playername">
+                  <span className={"avatar sm " + avatarClass(p.display_name)}>
+                    {initials(p.display_name)}
+                  </span>
+                  {p.display_name}
+                </span>
                 <div className="minipicks">
                   {picksFor(m).map(([val, lbl]) => (
                     <button
