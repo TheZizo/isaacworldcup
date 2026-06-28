@@ -662,3 +662,40 @@ button {
   border-color: var(--accent);
   color: #fff;
 }
+
+.roundtabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+.roundtabs::-webkit-scrollbar {
+  height: 6px;
+}
+.roundtabs::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+.roundtabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--txt);
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+}
+.roundtabs button:hover {
+  border-color: var(--accent);
+}
+.roundtabs button.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-d));
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(21, 163, 74, 0.28);
+}

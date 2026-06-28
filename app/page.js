@@ -393,10 +393,27 @@ function Claim({ roster, email, onClaim, onSignOut }) {
 }
 
 function Matches({ matches, preds, now, onPick }) {
+  const [round, setRound] = useState(null);
   if (!matches.length) return <div className="center">No matches yet.</div>;
+  const ROUND_LABEL = {
+    1: "Groups",
+    2: "Round of 32",
+    3: "Round of 16",
+    4: "Quarters",
+    5: "Semis",
+    6: "3rd place",
+    7: "Final",
+  };
+  const rounds = [...new Set(matches.map((m) => m.points))].sort(
+    (a, b) => a - b,
+  );
+  const upcoming = matches.find((m) => new Date(m.kickoff).getTime() > now);
+  const defaultRound = upcoming ? upcoming.points : rounds[rounds.length - 1];
+  const active = round != null && rounds.includes(round) ? round : defaultRound;
+  const shown = matches.filter((m) => m.points === active);
   const groups = [];
   let last = null;
-  matches.forEach((m) => {
+  shown.forEach((m) => {
     const d = fmtDate(m.kickoff);
     if (d !== last) {
       groups.push({ date: d, items: [] });
@@ -406,6 +423,17 @@ function Matches({ matches, preds, now, onPick }) {
   });
   return (
     <div className="list">
+      <div className="roundtabs">
+        {rounds.map((r) => (
+          <button
+            key={r}
+            className={active === r ? "active" : ""}
+            onClick={() => setRound(r)}
+          >
+            {ROUND_LABEL[r] || "Stage " + r}
+          </button>
+        ))}
+      </div>
       {groups.map((g) => (
         <div key={g.date} className="daygroup">
           <div className="dayhead">{g.date}</div>
