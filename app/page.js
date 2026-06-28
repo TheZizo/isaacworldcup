@@ -7,6 +7,15 @@ const PICKS = [
   ["draw", "Draw"],
   ["away", "Away"],
 ];
+// Knockout matches (any stage past the group stage, i.e. points > 1) cannot end
+// in a draw, so only Home / Away are offered there.
+const KO_PICKS = [
+  ["home", "Home"],
+  ["away", "Away"],
+];
+function picksFor(m) {
+  return m && m.points > 1 ? KO_PICKS : PICKS;
+}
 
 function labelFor(v) {
   return v === "home"
@@ -421,7 +430,7 @@ function Matches({ matches, preds, now, onPick }) {
                   {m.home} <span className="vs">vs</span> {m.away}
                 </div>
                 <div className="picks">
-                  {PICKS.map(([val, lbl]) => {
+                  {picksFor(m).map(([val, lbl]) => {
                     const sel = mine === val;
                     const correct = m.result && m.result === val && sel;
                     return (
@@ -555,7 +564,7 @@ function AdminResults({ matches, onSetResult }) {
             {m.home} <span className="vs">vs</span> {m.away}
           </div>
           <div className="picks">
-            {PICKS.map(([val, lbl]) => (
+            {picksFor(m).map(([val, lbl]) => (
               <button
                 key={val}
                 className={"pickbtn" + (m.result === val ? " sel" : "")}
@@ -620,7 +629,7 @@ function AdminVotes({
               <div key={p.id} className="playerrow">
                 <span className="playername">{p.display_name}</span>
                 <div className="minipicks">
-                  {PICKS.map(([val, lbl]) => (
+                  {picksFor(m).map(([val, lbl]) => (
                     <button
                       key={val}
                       className={"minibtn" + (cur === val ? " sel" : "")}
